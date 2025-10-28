@@ -1,5 +1,102 @@
 # Trabajo Práctico Final — Introducción al Marketing Online y los Negocios Digitales
 
+# 🧪 TP Final — Mini–Ecosistema de Datos & Dashboard Comercial (EcoBottle)
+
+Este trabajo implementa un mini–ecosistema de datos comercial con fuentes online y offline, un **modelo en estrella** y un **dashboard** con KPIs clave: **Ventas**, **Usuarios Activos**, **Ticket Promedio**, **NPS**, **Ventas por Provincia** y **Ranking Mensual por Producto** :contentReference[oaicite:0]{index=0}. Se parte de tablas RAW provistas y se construyen **dimensiones y hechos** junto con un **DW en CSV** consumido por Looker Studio :contentReference[oaicite:1]{index=1} :contentReference[oaicite:2]{index=2}.
+
+---
+
+## 📌 1. Objetivo y Alcance
+
+- **Objetivo:** diseñar e implementar el ecosistema de datos y el dashboard comercial con los KPIs solicitados :contentReference[oaicite:3]{index=3}.  
+- **Alcance del caso:** EcoBottle AR opera ventas **online** y **offline**; se registran pedidos, pagos, envíos, sesiones web y respuestas de NPS. La gerencia monitorea ventas, ticket, usuarios, NPS y ranking mensual por producto, con foco por producto, provincia y canal :contentReference[oaicite:4]{index=4}.
+
+---
+
+## 📖 2. Diccionario de Datos y Modelo  
+> Esta sección ya existe en el repositorio. No se reproduce aquí por pedido expreso.
+
+---
+
+## 🏗️ 3. Arquitectura de Datos
+
+1. **RAW/**: CSV fuente del repositorio base.  
+2. **Transformaciones (Python)**: limpieza, normalización y cálculo de KPIs para publicar **DW/** en CSV :contentReference[oaicite:5]{index=5}.  
+3. **DW/**: tablas **denormalizadas** listas para BI; se construyen **todas las dimensiones y hechos posibles** más allá del mínimo del tablero :contentReference[oaicite:6]{index=6}.  
+4. **Dashboard**: Looker Studio conectado a **DW/**, con filtros y vistas mínimas requeridas :contentReference[oaicite:7]{index=7}.
+
+---
+
+## 🧱 4. Modelo Estrella (visión general)
+
+- **Dimensiones:** Tiempo, Producto, Cliente, Geografía (Provincia/Dirección), Canal, Tienda.  
+- **Hechos:** Pedidos, Ventas Detalle, Pagos, Envíos, Sesiones, NPS.  
+
+> Las entidades y campos base están definidos en la consigna: catálogos, maestros, transaccionales, actividad digital y NPS :contentReference[oaicite:8]{index=8} :contentReference[oaicite:9]{index=9} :contentReference[oaicite:10]{index=10} :contentReference[oaicite:11]{index=11}.
+
+---
+
+## 🔧 5. Proceso de Construcción (cómo se hizo)
+
+### 5.1 Dimensión de Tiempo (`Dim_Tiempo`)
+Se generó de forma programática para cubrir el rango operativo del dataset. Columnas típicas:
+- `date_key` (YYYYMMDD), `date`, `year`, `quarter`, `month_number`, `month_name`, `week_number`, `day_of_month`, `day_of_week`, `is_weekend`.  
+- Se usa como clave de tiempo en todos los hechos con fechas (`order_date`, `paid_at`, `responded_at`, etc.).  
+- Permite **slicing** consistente en el tablero por período.
+
+> La dimensión de tiempo no viene en RAW y se crea para habilitar agregaciones temporales y las vistas del dashboard en Looker Studio :contentReference[oaicite:12]{index=12}.
+
+### 5.2 Dimensiones de Negocio
+- **Producto (`Dim_Producto`)**: derivada de `product` y `product_category`; incluye SKU, nombre, categoría y estado. Se crean surrogate keys (SK) y se resuelven faltantes con un registro “Desconocido” para asegurar integridad referencial :contentReference[oaicite:13]{index=13}.  
+- **Cliente (`Dim_Cliente`)**: deriva de `customer` con estado y fecha de alta; se contempla anonimato en sesiones/NPS donde `customer_id` puede ser nulo :contentReference[oaicite:14]{index=14} :contentReference[oaicite:15]{index=15}.  
+- **Geografía (`Dim_Geografia`)**: combina `address` con `province` para soportar el KPI “Ventas por Provincia” y mapas :contentReference[oaicite:16]{index=16}.  
+- **Canal (`Dim_Canal`)**: normaliza `channel` para clasificar pedidos, sesiones y NPS (ONLINE/OFFLINE) :contentReference[oaicite:17]{index=17}.  
+- **Tienda (`Dim_Tienda`)**: proveniente de `store`, enlazada a `address` para canal offline :contentReference[oaicite:18]{index=18}.
+
+Tratamientos comunes:
+- Deduplicación por claves naturales.  
+- Normalización de códigos y dominios.  
+- Surrogate keys y registro “-1 Desconocido” donde aplique.
+
+### 5.3 Hechos (grano, llaves y reglas)
+- **Fact_Pedidos**  
+  - **Grano:** 1 fila por `order_id`.  
+  - **Claves:** tiempo (`order_date_key`), cliente, canal, tienda (si aplica), geografía de envío.  
+  - **Métricas:** `subtotal`, `tax_amount`, `shipping_fee`, `total_amount`.  
+  - **Reglas:** se filtran estados para KPIs de ventas/ticket con `status IN ('PAID','FULFILLED')` :contentReference[oaicite:19]{index=19} :contentReference[oaicite:20]{index=20}.  
+
+- **Fact_Ventas_Detalle**  
+  - **Grano:** 1 fila por `order_item_id`.  
+  - **Claves:** pedido, producto, tiempo.  
+  - **Métricas:** `quantity`, `unit_price`, `discount_amount`, `line_total` (quantity*unit_price - discount) :contentReference[oaicite:21]{index=21}.  
+  - **Uso:** ranking mensual por producto y análisis mix de ventas :contentReference[oaicite:22]{index=22}.
+
+- **Fact_Pagos**  
+  - **Grano:** 1 fila por `payment_id`.  
+  - **Claves:** pedido, tiempo de pago, método.  
+  - **Métricas:** `amount`; estados soportan conciliación vs. ventas :contentReference[oaicite:23]{index=23}.
+
+- **Fact_Envios**  
+  - **Grano:** 1 fila por `shipment_id`.  
+  - **Claves:** pedido, tiempo de eventos logísticos, carrier.  
+  - **Uso:** trazabilidad y tiempos de entrega :contentReference[oaicite:24]{index=24}.
+
+- **Fact_Sesiones**  
+  - **Grano:** 1 fila por `session_id`.  
+  - **Claves:** cliente (opcional), canal/fuente, tiempo de inicio.  
+  - **Uso:** “Usuarios Activos” por período, con fallback a sesiones anónimas cuando no hay `customer_id` :contentReference[oaicite:25]{index=25} :contentReference[oaicite:26]{index=26}.
+
+- **Fact_NPS**  
+  - **Grano:** 1 fila por respuesta `nps_id`.  
+  - **Claves:** cliente (opcional), canal, tiempo de respuesta.  
+  - **Uso:** cálculo de NPS por período y canal :contentReference[oaicite:27]{index=27} :contentReference[oaicite:28]{index=28}.
+
+---
+
+## 🗂️ 6. Estructura del Repositorio
+
+
+
 ## 📖 2. Diccionario de Datos y Modelo
 
 A continuación, se detalla el Esquema Estrella (modelo Kimball) diseñado para este proyecto. Se definen los supuestos clave, las dimensiones de conformación y las tablas de hechos que almacenarán las métricas del negocio.
