@@ -17,7 +17,7 @@ A continuación, se detalla el Esquema Estrella (modelo Kimball) diseñado para 
     * La PK (`tiempo_id`) es un entero con formato `YYYYMMDD` para facilitar los `JOINs`.
 
 3.  **Manejo de Nulos / Anónimos:**
-    * Las tablas `web_session` y `nps_response` permiten un `customer_id` nulo[cite: 164, 173].
+    * Las tablas `web_session` y `nps_response` permiten un `customer_id` nulo.
     * Para manejar esto, `Dim_Cliente` contendrá un registro especial (ej: `cliente_sk = -1` o `0`) con el valor "Cliente Desconocido / Anónimo". Las FKs en `Fact_Sesiones` y `Fact_NPS` apuntarán a este registro cuando el `customer_id` sea `NULL`.
 
 4.  **Denormalización en Dimensiones:**
@@ -25,10 +25,10 @@ A continuación, se detalla el Esquema Estrella (modelo Kimball) diseñado para 
     * **`Dim_Geografia`:** Se denormaliza uniendo `address` con `province` para tener la información de provincia directamente en la dimensión geográfica.
 
 5.  **Definición de KPIs (Dominios):**
-    * **Ventas ($M):** Se calculan como `SUM(total_amount)` de `Fact_Pedidos` donde el `status` sea 'PAID' o 'FULFILLED'[cite: 179].
-    * [cite_start]**Usuarios Activos (nK):** `COUNT(DISTINCT cliente_sk)` de `Fact_Sesiones`[cite: 181]. Se excluye al cliente "Desconocido".
-    * [cite_start]**Ticket Promedio (\$K):** `SUM(total_amount) / COUNT(DISTINCT order_id)` para los pedidos con status 'PAID' o 'FULFILLED'[cite: 182].
-    * **NPS (ptos.):** `((Promotores - Detractores) / Total Respuestas) * 100`[cite: 183]. (Promotores: 9-10, Detractores: 0-6).
+    * **Ventas ($M):** Se calculan como `SUM(total_amount)` de `Fact_Pedidos` donde el `status` sea 'PAID' o 'FULFILLED'.
+    * **Usuarios Activos (nK):** `COUNT(DISTINCT cliente_sk)` de `Fact_Sesiones`. Se excluye al cliente "Desconocido".
+    * **Ticket Promedio (\$K):** `SUM(total_amount) / COUNT(DISTINCT order_id)` para los pedidos con status 'PAID' o 'FULFILLED'.
+    * **NPS (ptos.):** `((Promotores - Detractores) / Total Respuestas) * 100`. (Promotores: 9-10, Detractores: 0-6).
 
 ---
 
@@ -65,7 +65,7 @@ Estas tablas describen el contexto ("quién, qué, dónde, cuándo") de los hech
 
 ### HECHOS (Facts)
 
-Estas tablas registran los procesos de negocio y sus métricas. [cite_start]La consigna pide crear todas las tablas de hechos posibles[cite: 23].
+Estas tablas registran los procesos de negocio y sus métricas. La consigna pide crear todas las tablas de hechos posibles.
 
 #### 1. Fact_Pedidos
 Registra las cabeceras de las órdenes de venta. Es la fuente principal para el KPI de Ventas Totales y Ticket Promedio.
