@@ -30,11 +30,6 @@ Este proyecto implementa un *data warehouse* (DW) liviano en formato CSV a parti
 
 ## 2) Diccionario de Datos y Modelo
 
-> **Nota:** A continuación se incluye íntegramente el diseño de modelo estrella y el diccionario de datos preparado para este trabajo.  
-> Si preferís verlo como documento aparte, puede moverse a `/docs/diccionario.md`.
-
-### 📖 2. Diccionario de Datos y Modelo
-
 A continuación, se detalla el Esquema Estrella (modelo Kimball) diseñado para este proyecto. Se definen los supuestos clave, las dimensiones de conformación y las tablas de hechos que almacenarán las métricas del negocio.
 
 #### Supuestos y Decisiones de Modelado
@@ -102,6 +97,8 @@ Estas tablas registran los procesos de negocio y sus métricas. La consigna pide
 
 #### 1. Fact_Pedidos
 Registra las cabeceras de las órdenes de venta. Es la fuente principal para el KPI de Ventas Totales y Ticket Promedio.
+![Esquema Pedidos](star_schema/Fact_Pedidos.png)
+
 * **Grano:** Una fila por cabecera de pedido (`sales_order`).
 * **Dimensiones (FKs):**
     * `tiempo_id` (ref: `Dim_Tiempo`, por `order_date`)
@@ -115,6 +112,7 @@ Registra las cabeceras de las órdenes de venta. Es la fuente principal para el 
 
 #### 2. Fact_Ventas_Detalle
 Registra el detalle de productos en cada orden. Es la fuente para el Ranking de Productos.
+![Esquema Ventas Detalle](star_schema/Fact_Ventas_Detalle.png)
 * **Grano:** Una fila por ítem de producto dentro de un pedido (`sales_order_item`).
 * **Dimensiones (FKs):**
     * `order_id` (ref: `Fact_Pedidos.order_id`)
@@ -125,6 +123,7 @@ Registra el detalle de productos en cada orden. Es la fuente para el Ranking de 
 
 #### 3. Fact_Pagos
 Registra las transacciones de pago asociadas a las órdenes.
+![Esquema Pagos](star_schema/Fact_Pagos.png)
 * **Grano:** Una fila por transacción de pago (`payment`).
 * **Dimensiones (FKs):**
     * `order_id` (ref: `Fact_Pedidos.order_id`)
@@ -134,6 +133,7 @@ Registra las transacciones de pago asociadas a las órdenes.
 
 #### 4. Fact_Envios
 Registra la información logística de los envíos.
+![Esquema Envios](star_schema/Fact_Envios.png)
 * **Grano:** Una fila por envío (`shipment`).
 * **Dimensiones (FKs):**
     * `order_id` (ref: `Fact_Pedidos.order_id`)
@@ -144,6 +144,7 @@ Registra la información logística de los envíos.
 
 #### 5. Fact_Sesiones
 Registra las sesiones de navegación web. Es la fuente para el KPI de Usuarios Activos.
+![Esquema Sesiones](star_schema/Fact_Sesiones.png)
 * **Grano:** Una fila por sesión web (`web_session`).
 * **Dimensiones (FKs):**
     * `cliente_sk` (ref: `Dim_Cliente`, puede ser "Desconocido")
@@ -153,6 +154,7 @@ Registra las sesiones de navegación web. Es la fuente para el KPI de Usuarios A
 
 #### 6. Fact_NPS
 Registra las respuestas a las encuestas de Net Promoter Score.
+![Esquema NPS](star_schema/Fact_NPS.png)
 * **Grano:** Una fila por respuesta de encuesta (`nps_response`).
 * **Dimensiones (FKs):**
     * `cliente_sk` (ref: `Dim_Cliente`, puede ser "Desconocido")
@@ -167,13 +169,35 @@ Registra las respuestas a las encuestas de Net Promoter Score.
 
 ```
 .
-├── raw/                      # CSVs de origen (proporcionados)
-├── DW/                       # Salida del DW (archivos .csv generados por ETL)
-├── 01_crear_dim_tiempo.py    # Genera Dim_Tiempo (YYYYMMDD, nombres de mes/día)
-├── 02_crear_dimensiones.py   # Genera Dim_Canal, Dim_Cliente, Dim_Geografia, Dim_Producto, Dim_Tienda
-├── 03_crear_hechos.py        # Genera Fact_Pedidos, Fact_Ventas_Detalle, Fact_Pagos, Fact_Envios, Fact_Sesiones, Fact_NPS
-├── requirements.txt          # Dependencias mínimas para ejecutar los scripts
-└── README.md                 # Este documento
+├── README.md
+├── LICENSE                 # opcional
+├── requirements.txt
+├── .gitignore
+├── ETL/                    # tus scripts de carga/transformación
+│   ├── 01_crear_dim_tiempo.py
+│   ├── 02_crear_dimensiones.py
+│   └── 03_crear_hechos.py
+│
+├── star_schema/            # documentación del modelo estrella
+│   ├── Fact_Pedidos.png
+│   ├── Fact_Ventas_Detalle.png
+│   ├── Fact_Pagos.png
+│   ├── Fact_Envios.png
+│   ├── Fact_Sesiones.png
+│   ├── Fact_NPS.png
+│   └── ddl/                #  .sql de creación de dims/facts
+│       ├── Dim_/*.sql
+│       └── Fact_/*.sql
+├── raw/                    # datos originales (SOLO LECTURA)
+│   └── ...csv
+│
+├── DW/                     # salidas generadas por ETL (no tocar a mano)
+│   ├── Dim_*.csv
+│   └── Fact_*.csv
+│
+├── assets/                 # imágenes para README / capturas del dashboard y DER
+    └── dashboard/*.png
+    └── DER.png
 ```
 
 > **Importante:** asegurate de que todos los CSVs provistos estén bajo `raw/` antes de ejecutar los scripts.
