@@ -11,11 +11,9 @@
 - [4) Requisitos e Instalación](#4-requisitos-e-instalación)
 - [5) Pipeline ETL (scripts)](#5-pipeline-etl-scripts)
 - [6) Cómo ejecutar el proyecto](#6-cómo-ejecutar-el-proyecto)
-- [7) Consultas clave (SQL / DuckDB)](#7-consultas-clave-sql--duckdb)
-- [8) Dashboard en Looker Studio](#8-dashboard-en-looker-studio)
-- [9) Buenas prácticas de repositorio](#9-buenas-prácticas-de-repositorio)
-- [10) Roadmap y mejoras futuras](#10-roadmap-y-mejoras-futuras)
-- [11) Créditos y Licencia](#11-créditos-y-licencia)
+- [7) Dashboard en Looker Studio](#7-dashboard-en-looker-studio)
+- [8) Buenas prácticas de repositorio](#8-buenas-prácticas-de-repositorio)
+- [9) Créditos y Licencia](#9-créditos-y-licencia)
 
 ---
 
@@ -247,13 +245,13 @@ Con el entorno activado y dependencias instaladas:
 ```bash
 # 1) Asegurá los CSV de RAW en ./raw
 # 2) Generá Dim_Tiempo
-python 01_crear_dim_tiempo.py
+python ETL/01_crear_dim_tiempo.py
 
 # 3) Generá dimensiones
-python 02_crear_dimensiones.py
+python ETL/02_crear_dimensiones.py
 
 # 4) Generá hechos
-python 03_crear_hechos.py
+python ETL/03_crear_hechos.py
 ```
 
 Si todo sale bien, tendrás en `DW/` los CSV finales, listos para ser consumidos por Looker Studio (o por SQL vía DuckDB).
