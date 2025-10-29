@@ -2,13 +2,8 @@ import pandas as pd
 import os
 import locale
 
-# --- Configuración ---
-START_DATE = "2023-01-01"
-END_DATE = "2025-12-31"
-OUTPUT_DIR = "DW"
-OUTPUT_FILE = os.path.join(OUTPUT_DIR, "Dim_Tiempo.csv")
 
-def generar_dim_tiempo():
+def crear_dim_tiempo(START_DATE, END_DATE, OUTPUT_DIR, OUTPUT_FILE):
     """
     Genera la dimensión de tiempo en el rango de fechas especificado
     y la guarda en un archivo CSV.

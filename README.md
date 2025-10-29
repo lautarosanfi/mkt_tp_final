@@ -309,7 +309,7 @@ Si todo sale bien, tendrás en `DW/` los CSV finales, listos para ser consumidos
   - `feat(etl): agrega cálculo de dias_en_transito en Fact_Envios`
   - `fix(dim_producto): corrige nulos en nombre_categoria`
   - `docs(readme): agrega instrucciones de Looker Studio`
-- **Estructura clara de carpetas** (`raw/`, `DW/`, `scripts/`, `docs/`).
+- **Estructura clara de carpetas** (`raw/`, `DW/`, `ETL/`, `star_schema/`, `assets/`).
 - **Control por consola**: creación de ramas, commits, *tags* de entregas, *merge* sin fast-forward cuando aplique.
 
 ---
