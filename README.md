@@ -1,107 +1,45 @@
-# Trabajo Práctico Final — Introducción al Marketing Online y los Negocios Digitales
+# TP Final — Ecosistema de Datos (EcoBottle AR)
 
-# 🧪 TP Final — Mini–Ecosistema de Datos & Dashboard Comercial (EcoBottle)
+> **Introducción al Marketing Online y los Negocios Digitales — Trabajo Práctico Final**  
+> Mini–ecosistema de datos comercial (online + offline) + dashboard de KPIs.
 
-Este trabajo implementa un mini–ecosistema de datos comercial con fuentes online y offline, un **modelo en estrella** y un **dashboard** con KPIs clave: **Ventas**, **Usuarios Activos**, **Ticket Promedio**, **NPS**, **Ventas por Provincia** y **Ranking Mensual por Producto** :contentReference[oaicite:0]{index=0}. Se parte de tablas RAW provistas y se construyen **dimensiones y hechos** junto con un **DW en CSV** consumido por Looker Studio :contentReference[oaicite:1]{index=1} :contentReference[oaicite:2]{index=2}.
-
----
-
-## 📌 1. Objetivo y Alcance
-
-- **Objetivo:** diseñar e implementar el ecosistema de datos y el dashboard comercial con los KPIs solicitados :contentReference[oaicite:3]{index=3}.  
-- **Alcance del caso:** EcoBottle AR opera ventas **online** y **offline**; se registran pedidos, pagos, envíos, sesiones web y respuestas de NPS. La gerencia monitorea ventas, ticket, usuarios, NPS y ranking mensual por producto, con foco por producto, provincia y canal :contentReference[oaicite:4]{index=4}.
-
----
-
-## 📖 2. Diccionario de Datos y Modelo  
-> Esta sección ya existe en el repositorio. No se reproduce aquí por pedido expreso.
-
----
-
-## 🏗️ 3. Arquitectura de Datos
-
-1. **RAW/**: CSV fuente del repositorio base.  
-2. **Transformaciones (Python)**: limpieza, normalización y cálculo de KPIs para publicar **DW/** en CSV :contentReference[oaicite:5]{index=5}.  
-3. **DW/**: tablas **denormalizadas** listas para BI; se construyen **todas las dimensiones y hechos posibles** más allá del mínimo del tablero :contentReference[oaicite:6]{index=6}.  
-4. **Dashboard**: Looker Studio conectado a **DW/**, con filtros y vistas mínimas requeridas :contentReference[oaicite:7]{index=7}.
+## 0) Contenidos
+- [0) Contenidos](#0-contenidos)
+- [1) Descripción y Objetivos](#1-descripción-y-objetivos)
+- [2) Diccionario de Datos y Modelo](#2-diccionario-de-datos-y-modelo)
+- [3) Estructura del Repositorio](#3-estructura-del-repositorio)
+- [4) Requisitos e Instalación](#4-requisitos-e-instalación)
+- [5) Pipeline ETL (scripts)](#5-pipeline-etl-scripts)
+- [6) Cómo ejecutar el proyecto](#6-cómo-ejecutar-el-proyecto)
+- [7) Consultas clave (SQL / DuckDB)](#7-consultas-clave-sql--duckdb)
+- [8) Dashboard en Looker Studio](#8-dashboard-en-looker-studio)
+- [9) Buenas prácticas de repositorio](#9-buenas-prácticas-de-repositorio)
+- [10) Roadmap y mejoras futuras](#10-roadmap-y-mejoras-futuras)
+- [11) Créditos y Licencia](#11-créditos-y-licencia)
 
 ---
 
-## 🧱 4. Modelo Estrella (visión general)
+## 1) Descripción y Objetivos
 
-- **Dimensiones:** Tiempo, Producto, Cliente, Geografía (Provincia/Dirección), Canal, Tienda.  
-- **Hechos:** Pedidos, Ventas Detalle, Pagos, Envíos, Sesiones, NPS.  
+Este proyecto implementa un *data warehouse* (DW) liviano en formato CSV a partir de datos RAW provistos, y construye un tablero con **KPIs** para el área comercial: **Ventas**, **Usuarios Activos**, **Ticket Promedio**, **NPS**, **Ventas por Provincia** y **Ranking Mensual por Producto**. El caso de uso es **EcoBottle AR** (ventas online y 4 tiendas físicas).
 
-> Las entidades y campos base están definidos en la consigna: catálogos, maestros, transaccionales, actividad digital y NPS :contentReference[oaicite:8]{index=8} :contentReference[oaicite:9]{index=9} :contentReference[oaicite:10]{index=10} :contentReference[oaicite:11]{index=11}.
-
----
-
-## 🔧 5. Proceso de Construcción (cómo se hizo)
-
-### 5.1 Dimensión de Tiempo (`Dim_Tiempo`)
-Se generó de forma programática para cubrir el rango operativo del dataset. Columnas típicas:
-- `date_key` (YYYYMMDD), `date`, `year`, `quarter`, `month_number`, `month_name`, `week_number`, `day_of_month`, `day_of_week`, `is_weekend`.  
-- Se usa como clave de tiempo en todos los hechos con fechas (`order_date`, `paid_at`, `responded_at`, etc.).  
-- Permite **slicing** consistente en el tablero por período.
-
-> La dimensión de tiempo no viene en RAW y se crea para habilitar agregaciones temporales y las vistas del dashboard en Looker Studio :contentReference[oaicite:12]{index=12}.
-
-### 5.2 Dimensiones de Negocio
-- **Producto (`Dim_Producto`)**: derivada de `product` y `product_category`; incluye SKU, nombre, categoría y estado. Se crean surrogate keys (SK) y se resuelven faltantes con un registro “Desconocido” para asegurar integridad referencial :contentReference[oaicite:13]{index=13}.  
-- **Cliente (`Dim_Cliente`)**: deriva de `customer` con estado y fecha de alta; se contempla anonimato en sesiones/NPS donde `customer_id` puede ser nulo :contentReference[oaicite:14]{index=14} :contentReference[oaicite:15]{index=15}.  
-- **Geografía (`Dim_Geografia`)**: combina `address` con `province` para soportar el KPI “Ventas por Provincia” y mapas :contentReference[oaicite:16]{index=16}.  
-- **Canal (`Dim_Canal`)**: normaliza `channel` para clasificar pedidos, sesiones y NPS (ONLINE/OFFLINE) :contentReference[oaicite:17]{index=17}.  
-- **Tienda (`Dim_Tienda`)**: proveniente de `store`, enlazada a `address` para canal offline :contentReference[oaicite:18]{index=18}.
-
-Tratamientos comunes:
-- Deduplicación por claves naturales.  
-- Normalización de códigos y dominios.  
-- Surrogate keys y registro “-1 Desconocido” donde aplique.
-
-### 5.3 Hechos (grano, llaves y reglas)
-- **Fact_Pedidos**  
-  - **Grano:** 1 fila por `order_id`.  
-  - **Claves:** tiempo (`order_date_key`), cliente, canal, tienda (si aplica), geografía de envío.  
-  - **Métricas:** `subtotal`, `tax_amount`, `shipping_fee`, `total_amount`.  
-  - **Reglas:** se filtran estados para KPIs de ventas/ticket con `status IN ('PAID','FULFILLED')` :contentReference[oaicite:19]{index=19} :contentReference[oaicite:20]{index=20}.  
-
-- **Fact_Ventas_Detalle**  
-  - **Grano:** 1 fila por `order_item_id`.  
-  - **Claves:** pedido, producto, tiempo.  
-  - **Métricas:** `quantity`, `unit_price`, `discount_amount`, `line_total` (quantity*unit_price - discount) :contentReference[oaicite:21]{index=21}.  
-  - **Uso:** ranking mensual por producto y análisis mix de ventas :contentReference[oaicite:22]{index=22}.
-
-- **Fact_Pagos**  
-  - **Grano:** 1 fila por `payment_id`.  
-  - **Claves:** pedido, tiempo de pago, método.  
-  - **Métricas:** `amount`; estados soportan conciliación vs. ventas :contentReference[oaicite:23]{index=23}.
-
-- **Fact_Envios**  
-  - **Grano:** 1 fila por `shipment_id`.  
-  - **Claves:** pedido, tiempo de eventos logísticos, carrier.  
-  - **Uso:** trazabilidad y tiempos de entrega :contentReference[oaicite:24]{index=24}.
-
-- **Fact_Sesiones**  
-  - **Grano:** 1 fila por `session_id`.  
-  - **Claves:** cliente (opcional), canal/fuente, tiempo de inicio.  
-  - **Uso:** “Usuarios Activos” por período, con fallback a sesiones anónimas cuando no hay `customer_id` :contentReference[oaicite:25]{index=25} :contentReference[oaicite:26]{index=26}.
-
-- **Fact_NPS**  
-  - **Grano:** 1 fila por respuesta `nps_id`.  
-  - **Claves:** cliente (opcional), canal, tiempo de respuesta.  
-  - **Uso:** cálculo de NPS por período y canal :contentReference[oaicite:27]{index=27} :contentReference[oaicite:28]{index=28}.
+**Entregables principales**:
+- Scripts de carga/transformación (ETL) que generan dimensiones y hechos en `DW/`.
+- **README** (este documento) con instrucciones, supuestos, diccionario y consultas.
+- **Dashboard** final en Looker Studio con filtros por fecha, canal, provincia y producto.
 
 ---
 
-## 🗂️ 6. Estructura del Repositorio
+## 2) Diccionario de Datos y Modelo
 
+> **Nota:** A continuación se incluye íntegramente el diseño de modelo estrella y el diccionario de datos preparado para este trabajo.  
+> Si preferís verlo como documento aparte, puede moverse a `/docs/diccionario.md`.
 
-
-## 📖 2. Diccionario de Datos y Modelo
+### 📖 2. Diccionario de Datos y Modelo
 
 A continuación, se detalla el Esquema Estrella (modelo Kimball) diseñado para este proyecto. Se definen los supuestos clave, las dimensiones de conformación y las tablas de hechos que almacenarán las métricas del negocio.
 
-### Supuestos y Decisiones de Modelado
+#### Supuestos y Decisiones de Modelado
 
 1.  **Claves (Keys):**
     * **Surrogate Keys (SK):** Se generan claves sustitutas (ej: `cliente_sk`, `producto_sk`) para las dimensiones principales (`Dim_Cliente`, `Dim_Producto`, `Dim_Geografia`). Esto permite manejar cambios a lo largo del tiempo (Slowly Changing Dimensions) y desvincular el DW de las claves operacionales de `RAW`.
@@ -115,7 +53,7 @@ A continuación, se detalla el Esquema Estrella (modelo Kimball) diseñado para 
 
 3.  **Manejo de Nulos / Anónimos:**
     * Las tablas `web_session` y `nps_response` permiten un `customer_id` nulo.
-    * Para manejar esto, `Dim_Cliente` contendrá un registro especial (ej: `cliente_sk = -1` o `0`) con el valor "Cliente Desconocido / Anónimo". Las FKs en `Fact_Sesiones` y `Fact_NPS` apuntarán a este registro cuando el `customer_id` sea `NULL`.
+    * Para manejar esto, `Dim_Cliente` contendrá un registro especial (ej: `cliente_sk = -1`) con el valor "Cliente Desconocido / Anónimo". Las FKs en `Fact_Sesiones` y `Fact_NPS` apuntarán a este registro cuando el `customer_id` sea `NULL`.
 
 4.  **Denormalización en Dimensiones:**
     * **`Dim_Producto`:** Se denormaliza uniendo `product` con `product_category` para incluir el nombre de la categoría y su padre en la misma fila.
@@ -124,7 +62,7 @@ A continuación, se detalla el Esquema Estrella (modelo Kimball) diseñado para 
 5.  **Definición de KPIs (Dominios):**
     * **Ventas ($M):** Se calculan como `SUM(total_amount)` de `Fact_Pedidos` donde el `status` sea 'PAID' o 'FULFILLED'.
     * **Usuarios Activos (nK):** `COUNT(DISTINCT cliente_sk)` de `Fact_Sesiones`. Se excluye al cliente "Desconocido".
-    * **Ticket Promedio (\$K):** `SUM(total_amount) / COUNT(DISTINCT order_id)` para los pedidos con status 'PAID' o 'FULFILLED'.
+    * **Ticket Promedio ($K):** `SUM(total_amount) / COUNT(DISTINCT order_id)` para los pedidos con status 'PAID' o 'FULFILLED'.
     * **NPS (ptos.):** `((Promotores - Detractores) / Total Respuestas) * 100`. (Promotores: 9-10, Detractores: 0-6).
 
 ---
@@ -166,7 +104,6 @@ Estas tablas registran los procesos de negocio y sus métricas. La consigna pide
 
 #### 1. Fact_Pedidos
 Registra las cabeceras de las órdenes de venta. Es la fuente principal para el KPI de Ventas Totales y Ticket Promedio.
-![Esquema Pedidos](star_schema/Fact_Pedidos.png)
 * **Grano:** Una fila por cabecera de pedido (`sales_order`).
 * **Dimensiones (FKs):**
     * `tiempo_id` (ref: `Dim_Tiempo`, por `order_date`)
@@ -180,7 +117,6 @@ Registra las cabeceras de las órdenes de venta. Es la fuente principal para el 
 
 #### 2. Fact_Ventas_Detalle
 Registra el detalle de productos en cada orden. Es la fuente para el Ranking de Productos.
-![Esquema Ventas Detalle](star_schema/Fact_Ventas_Detalle.png)
 * **Grano:** Una fila por ítem de producto dentro de un pedido (`sales_order_item`).
 * **Dimensiones (FKs):**
     * `order_id` (ref: `Fact_Pedidos.order_id`)
@@ -191,7 +127,6 @@ Registra el detalle de productos en cada orden. Es la fuente para el Ranking de 
 
 #### 3. Fact_Pagos
 Registra las transacciones de pago asociadas a las órdenes.
-![Esquema Pagos](star_schema/Fact_Pagos.png)
 * **Grano:** Una fila por transacción de pago (`payment`).
 * **Dimensiones (FKs):**
     * `order_id` (ref: `Fact_Pedidos.order_id`)
@@ -201,7 +136,6 @@ Registra las transacciones de pago asociadas a las órdenes.
 
 #### 4. Fact_Envios
 Registra la información logística de los envíos.
-![Esquema Envios](star_schema/Fact_Envios.png)
 * **Grano:** Una fila por envío (`shipment`).
 * **Dimensiones (FKs):**
     * `order_id` (ref: `Fact_Pedidos.order_id`)
@@ -212,7 +146,6 @@ Registra la información logística de los envíos.
 
 #### 5. Fact_Sesiones
 Registra las sesiones de navegación web. Es la fuente para el KPI de Usuarios Activos.
-![Esquema Sesiones](star_schema/Fact_Sesiones.png)
 * **Grano:** Una fila por sesión web (`web_session`).
 * **Dimensiones (FKs):**
     * `cliente_sk` (ref: `Dim_Cliente`, puede ser "Desconocido")
@@ -222,7 +155,6 @@ Registra las sesiones de navegación web. Es la fuente para el KPI de Usuarios A
 
 #### 6. Fact_NPS
 Registra las respuestas a las encuestas de Net Promoter Score.
-![Esquema NPS](star_schema/Fact_NPS.png)
 * **Grano:** Una fila por respuesta de encuesta (`nps_response`).
 * **Dimensiones (FKs):**
     * `cliente_sk` (ref: `Dim_Cliente`, puede ser "Desconocido")
@@ -230,3 +162,140 @@ Registra las respuestas a las encuestas de Net Promoter Score.
     * `tiempo_id` (ref: `Dim_Tiempo`, por `responded_at`)
 * **Medidas:** `score`.
 * **Atributos Degenerados:** `nps_id` (PK), `comment` (TEXT).
+
+---
+
+## 3) Estructura del Repositorio
+
+```
+.
+├── raw/                      # CSVs de origen (proporcionados)
+├── DW/                       # Salida del DW (archivos .csv generados por ETL)
+├── 01_crear_dim_tiempo.py    # Genera Dim_Tiempo (YYYYMMDD, nombres de mes/día)
+├── 02_crear_dimensiones.py   # Genera Dim_Canal, Dim_Cliente, Dim_Geografia, Dim_Producto, Dim_Tienda
+├── 03_crear_hechos.py        # Genera Fact_Pedidos, Fact_Ventas_Detalle, Fact_Pagos, Fact_Envios, Fact_Sesiones, Fact_NPS
+├── requirements.txt          # Dependencias mínimas para ejecutar los scripts
+└── README.md                 # Este documento
+```
+
+> **Importante:** asegurate de que todos los CSVs provistos estén bajo `raw/` antes de ejecutar los scripts.
+
+---
+
+## 4) Requisitos e Instalación
+
+**Versión recomendada de Python:** 3.10+  
+**SO:** Windows / macOS / Linux
+
+### Entorno virtual (recomendado)
+```bash
+python -m venv .venv
+# Windows
+.venv\\Scripts\\activate
+# macOS / Linux
+source .venv/bin/activate
+```
+
+### Dependencias
+```text
+# requirements.txt
+pandas>=2.0.0
+python-dateutil>=2.8.2  # (transitiva de pandas, útil por seguridad)
+duckdb>=1.0.0           # opcional, para ejecutar consultas SQL directas sobre CSV
+```
+
+Instalación:
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+## 5) Pipeline ETL (scripts)
+
+1) **01_crear_dim_tiempo.py**  
+Genera la tabla `DW/Dim_Tiempo.csv` con atributos de fecha (id `YYYYMMDD`, año, mes, nombre de mes, día, trimestre, día de semana). Respeta rango `START_DATE`–`END_DATE`.  
+Variables clave:
+- `START_DATE = "2023-01-01"`  
+- `END_DATE   = "2025-12-31"`  
+- `OUTPUT_DIR = "DW"`  
+- `OUTPUT_FILE = os.path.join(OUTPUT_DIR, "Dim_Tiempo.csv")`
+
+2) **02_crear_dimensiones.py**  
+Crea las dimensiones a partir de los CSV de `raw/`:
+- **Dim_Canal** (`channel.csv` → `canal_id`, `canal_code`, `canal_nombre`)  
+- **Dim_Cliente** (`customer.csv` → genera `cliente_sk` incremental, agrega fila *Cliente Anónimo* con `cliente_sk=-1`)  
+- **Dim_Geografia** (`address.csv` + `province.csv` → agrega `nombre_provincia`, genera `geografia_sk`)  
+- **Dim_Producto** (`product.csv` + `product_category.csv` + categoría padre → `producto_sk`, `nombre_categoria`, `nombre_categoria_padre`)  
+- **Dim_Tienda** (`store.csv` + *lookup* de `Dim_Geografia` para `geografia_sk`)  
+
+3) **03_crear_hechos.py**  
+Genera los hechos consumiendo dimensiones y tablas RAW:
+- **Fact_Pedidos** (convierte `order_date` a `tiempo_id`, mapea `customer_id` a `cliente_sk`, `billing/shipping` a `geografia_*_sk`).
+- **Fact_Ventas_Detalle** (une con `Fact_Pedidos` para traer `tiempo_id` del pedido y mapea `product_id` a `producto_sk`).
+- **Fact_Pagos** (convierte `paid_at` a `tiempo_id`).
+- **Fact_Envios** (convierte `shipped_at`/`delivered_at` y calcula `dias_en_transito`).
+- **Fact_Sesiones** (convierte `started_at` a `tiempo_id`, mapea `customer_id` a `cliente_sk` y usa `-1` para anónimos; calcula `duracion_sesion_seg` y `contador_sesion=1`).
+- **Fact_NPS** (convierte `responded_at` a `tiempo_id`, mapea `customer_id` a `cliente_sk` y renombra `channel_id` → `canal_id`).
+
+---
+
+## 6) Cómo ejecutar el proyecto
+
+Con el entorno activado y dependencias instaladas:
+
+```bash
+# 1) Asegurá los CSV de RAW en ./raw
+# 2) Generá Dim_Tiempo
+python 01_crear_dim_tiempo.py
+
+# 3) Generá dimensiones
+python 02_crear_dimensiones.py
+
+# 4) Generá hechos
+python 03_crear_hechos.py
+```
+
+Si todo sale bien, tendrás en `DW/` los CSV finales, listos para ser consumidos por Looker Studio (o por SQL vía DuckDB).
+
+---
+
+## 7) Dashboard en Looker Studio
+
+1. **Preparar fuentes**: subir la carpeta `DW/` a Google Drive (o montar un conector a archivos locales) y crear una **fuente de datos** por cada CSV: `Dim_Tiempo`, `Dim_Canal`, `Dim_Cliente`, `Dim_Geografia`, `Dim_Producto`, `Dim_Tienda`, `Fact_Pedidos`, `Fact_Ventas_Detalle`, `Fact_Pagos`, `Fact_Envios`, `Fact_Sesiones`, `Fact_NPS`.
+2. **Campos calculados** (ejemplos):
+   - `Ventas`: `CASE WHEN status IN ('PAID','FULFILLED') THEN total_amount ELSE 0 END` (agregación: SUM).
+   - `Ticket Promedio`: `SUM(Ventas) / COUNT_DISTINCT(order_id)`.
+   - `Usuarios Activos`: usar lógica de la consulta 7.2 (o construir dos vistas separadas).
+   - `NPS`: `((% Promotores) - (% Detractores)) * 100` con bins por score.
+3. **Filtros / Segmentos**: Fecha (`Dim_Tiempo`), Canal (`Dim_Canal`), Provincia (`Dim_Geografia`), Producto (`Dim_Producto`).
+4. **Vistas mínimas**:
+   - Serie temporal + tarjeta de **Ventas**.
+   - Serie temporal + tarjeta de **Usuarios Activos**.
+   - Tarjeta de **Ticket Promedio**.
+   - Tarjeta + tendencia de **NPS**.
+   - **Ventas por Provincia** (mapa o barras).
+   - **Ranking mensual por Producto** (Top N).
+5. **Meta del trimestre (ejemplo de negocio)**: crecer 15% en ventas en Córdoba y reducir tiempos de entrega en Mendoza → monitorear **Ventas por Provincia** (filtro Córdoba) y **dias_en_transito** (en `Fact_Envios`).
+
+---
+
+## 8) Buenas prácticas de repositorio
+
+- **Entorno virtual** y `requirements.txt` versionado.
+- **Conventional Commits** (ejemplo):
+  - `feat(etl): agrega cálculo de dias_en_transito en Fact_Envios`
+  - `fix(dim_producto): corrige nulos en nombre_categoria`
+  - `docs(readme): agrega instrucciones de Looker Studio`
+- **Estructura clara de carpetas** (`raw/`, `DW/`, `scripts/`, `docs/`).
+- **Control por consola**: creación de ramas, commits, *tags* de entregas, *merge* sin fast-forward cuando aplique.
+
+---
+
+## 9) Créditos y Licencia
+
+- **Autor/a**: Lautaro Sanfilippo 
+- **Materia**: Introducción al Marketing Online y los Negocios Digitales  
+- **Licencia**: MIT
+
+---
