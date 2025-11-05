@@ -90,7 +90,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--start", 
         type=str, 
-        default="2023-01-01",  # Valor por defecto si no se especifica
+        default="2022-01-01",  # Valor por defecto si no se especifica
         help="Fecha de inicio (YYYY-MM-DD) para la Dim_Tiempo."
     )
     
@@ -98,7 +98,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--end", 
         type=str, 
-        default="2025-12-31",  # Valor por defecto si no se especifica
+        default="2026-12-31",  # Valor por defecto si no se especifica
         help="Fecha de fin (YYYY-MM-DD) para la Dim_Tiempo."
     )
     

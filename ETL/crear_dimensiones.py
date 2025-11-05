@@ -176,36 +176,60 @@ def crear_dimensiones():
     except Exception as e:
         print(f"Error procesando Dim_Producto: {e}")
 
-    # --- 5. Creación de Dim_Tienda ---
+    # --- 5. Creación de Dim_Tienda (Desnormalizada) ---
     try:
-        print("\n--- Procesando: Dim_Tienda ---")
+        print("\n--- Procesando: Dim_Tienda (Desnormalizada) ---")
         df_store = pd.read_csv(os.path.join(RAW_DIR, "store.csv"))
         
-        # Cargar la Dim_Geografia recién creada para obtener la SK
-        df_dim_geografia_lookup = pd.read_csv(os.path.join(DW_DIR, "Dim_Geografia.csv"))
-        df_dim_geografia_lookup = df_dim_geografia_lookup[['address_id', 'geografia_sk']]
+        # Cargar las tablas de geografía RAW para desnormalizar
+        df_address = pd.read_csv(os.path.join(RAW_DIR, "address.csv"))
+        df_province = pd.read_csv(os.path.join(RAW_DIR, "province.csv"))
         
-        # Join con Dim_Geografia para obtener la geografia_sk
-        df_tienda_merged = pd.merge(
-            df_store,
-            df_dim_geografia_lookup,
-            on='address_id',
+        # 1. Unir address y province
+        df_geo_full = pd.merge(
+            df_address,
+            df_province,
+            on='province_id',
             how='left'
         )
+
+        # 2. Unir store con la info geográfica completa
+        df_tienda_merged = pd.merge(
+            df_store,
+            df_geo_full,
+            on='address_id',
+            how='left',
+            suffixes=('_tienda', '_provincia') # Maneja colisión de 'name'
+        )
         
-        # Seleccionar y renombrar columnas según DDL
-        df_dim_tienda = df_tienda_merged[['store_id', 'name', 'geografia_sk']]
-        df_dim_tienda = df_dim_tienda.rename(columns={'name': 'nombre_tienda'})
+        # Seleccionar y renombrar columnas finales
+        # Ahora incluimos todos los campos de geografía
+        df_dim_tienda = df_tienda_merged[[
+            'store_id', 
+            'name_tienda',  # Nombre de la tienda
+            'line1', 
+            'line2', 
+            'city', 
+            'postal_code', 
+            'country_code', 
+            'name_provincia' # Nombre de la provincia
+        ]]
+        
+        # Renombrar columnas para DDL final
+        df_dim_tienda = df_dim_tienda.rename(columns={
+            'name_tienda': 'nombre_tienda',
+            'name_provincia': 'nombre_provincia'
+        })
         
         # Guardar
         output_path = os.path.join(DW_DIR, "Dim_Tienda.csv")
         df_dim_tienda.to_csv(output_path, index=False, encoding='utf-8')
         
-        print(f"¡Éxito! 'Dim_Tienda.csv' guardado.")
+        print(f"¡Éxito! 'Dim_Tienda.csv' (desnormalizada) guardada.")
         print(df_dim_tienda.head().to_markdown(index=False, numalign="left", stralign="left"))
 
     except FileNotFoundError as e:
-        print(f"Error: Archivo no encontrado. Asegúrate de tener 'store.csv' y 'DW/Dim_Geografia.csv'. {e}")
+        print(f"Error: Archivo no encontrado. Asegúrate de tener 'store.csv', 'address.csv' y 'province.csv'. {e}")
     except Exception as e:
         print(f"Error procesando Dim_Tienda: {e}")
 

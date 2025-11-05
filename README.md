@@ -11,9 +11,8 @@
 - [4) Requisitos e Instalación](#4-requisitos-e-instalación)
 - [5) Pipeline ETL (scripts)](#5-pipeline-etl-scripts)
 - [6) Cómo ejecutar el proyecto](#6-cómo-ejecutar-el-proyecto)
-- [7) Dashboard en Looker Studio](#7-dashboard-en-looker-studio)
-- [8) Buenas prácticas de repositorio](#8-buenas-prácticas-de-repositorio)
-- [9) Créditos y Licencia](#9-créditos-y-licencia)
+- [7) Buenas prácticas de repositorio](#8-buenas-prácticas-de-repositorio)
+- [8) Créditos y Licencia](#9-créditos-y-licencia)
 
 ---
 
@@ -26,6 +25,7 @@ Este proyecto implementa un *data warehouse* (DW) liviano en formato CSV a parti
 - **README** (este documento) con instrucciones, supuestos, diccionario y consultas.
 - **Dashboard** final en Looker Studio con filtros por fecha, canal, provincia y producto.
 
+> Al ser entrega parcial el dashboard aún no está disponible 
 ---
 
 ## 2) Diccionario de Datos y Modelo
@@ -221,9 +221,12 @@ source .venv/bin/activate
 ### Dependencias
 ```text
 # requirements.txt
-pandas>=2.0.0
-python-dateutil>=2.8.2  # (transitiva de pandas, útil por seguridad)
-duckdb>=1.0.0           # opcional, para ejecutar consultas SQL directas sobre CSV
+# Core (used by all ETL scripts)
+pandas>=2.2,<3.0
+tabulate
+
+# Optional: run SQL analytics directly on CSVs (not required for ETL run)
+duckdb>=1.0.0
 ```
 
 Instalación:
@@ -235,7 +238,7 @@ pip install -r requirements.txt
 
 ## 5) Pipeline ETL (scripts)
 
-1) **01_crear_dim_tiempo.py**  
+1) **crear_dim_tiempo.py**  
 Genera la tabla `DW/Dim_Tiempo.csv` con atributos de fecha (id `YYYYMMDD`, año, mes, nombre de mes, día, trimestre, día de semana). Respeta rango `START_DATE`–`END_DATE`.  
 Variables clave:
 - `START_DATE = "2023-01-01"`  
@@ -243,7 +246,7 @@ Variables clave:
 - `OUTPUT_DIR = "DW"`  
 - `OUTPUT_FILE = os.path.join(OUTPUT_DIR, "Dim_Tiempo.csv")`
 
-2) **02_crear_dimensiones.py**  
+2) **crear_dimensiones.py**  
 Crea las dimensiones a partir de los CSV de `raw/`:
 - **Dim_Canal** (`channel.csv` → `canal_id`, `canal_code`, `canal_nombre`)  
 - **Dim_Cliente** (`customer.csv` → genera `cliente_sk` incremental, agrega fila *Cliente Anónimo* con `cliente_sk=-1`)  
@@ -251,7 +254,7 @@ Crea las dimensiones a partir de los CSV de `raw/`:
 - **Dim_Producto** (`product.csv` + `product_category.csv` + categoría padre → `producto_sk`, `nombre_categoria`, `nombre_categoria_padre`)  
 - **Dim_Tienda** (`store.csv` + *lookup* de `Dim_Geografia` para `geografia_sk`)  
 
-3) **03_crear_hechos.py**  
+3) **crear_hechos.py**  
 Genera los hechos consumiendo dimensiones y tablas RAW:
 - **Fact_Pedidos** (convierte `order_date` a `tiempo_id`, mapea `customer_id` a `cliente_sk`, `billing/shipping` a `geografia_*_sk`).
 - **Fact_Ventas_Detalle** (une con `Fact_Pedidos` para traer `tiempo_id` del pedido y mapea `product_id` a `producto_sk`).
@@ -260,49 +263,29 @@ Genera los hechos consumiendo dimensiones y tablas RAW:
 - **Fact_Sesiones** (convierte `started_at` a `tiempo_id`, mapea `customer_id` a `cliente_sk` y usa `-1` para anónimos; calcula `duracion_sesion_seg` y `contador_sesion=1`).
 - **Fact_NPS** (convierte `responded_at` a `tiempo_id`, mapea `customer_id` a `cliente_sk` y renombra `channel_id` → `canal_id`).
 
+4) **main.py** (Orquestador Principal)
+Script para ejecutar el pipeline ETL completo. Llama secuencialmente a las funciones de los scripts anteriores (Tiempo, Dimensiones, Hechos) para poblar el Data Warehouse.
+Variables clave (pasadas por terminal):
+- `--start`: Fecha de inicio (ej: "2022-01-01") para la `Dim_Tiempo`.
+- `--end`: Fecha de fin (ej: "2026-12-31") para la `Dim_Tiempo`.
+
 ---
 
 ## 6) Cómo ejecutar el proyecto
-
-Con el entorno activado y dependencias instaladas:
-
 ```bash
 # 1) Asegurá los CSV de RAW en ./raw
-# 2) Generá Dim_Tiempo
-python ETL/01_crear_dim_tiempo.py
 
-# 3) Generá dimensiones
-python ETL/02_crear_dimensiones.py
+# 2) Ejecutá el pipeline ETL completo con el orquestador:
+# (Esto corre los 3 pasos: Tiempo, Dimensiones y Hechos)
+python ETL/main.py --start "2023-01-01" --end "2025-12-31"
 
-# 4) Generá hechos
-python ETL/03_crear_hechos.py
+# Opcional: podés omitir las fechas y usará las definidas
+# por defecto dentro del script 'main.py'
+# python ETL/main.py
 ```
-
-Si todo sale bien, tendrás en `DW/` los CSV finales, listos para ser consumidos por Looker Studio (o por SQL vía DuckDB).
-
 ---
 
-## 7) Dashboard en Looker Studio
-
-1. **Preparar fuentes**: subir la carpeta `DW/` a Google Drive (o montar un conector a archivos locales) y crear una **fuente de datos** por cada CSV: `Dim_Tiempo`, `Dim_Canal`, `Dim_Cliente`, `Dim_Geografia`, `Dim_Producto`, `Dim_Tienda`, `Fact_Pedidos`, `Fact_Ventas_Detalle`, `Fact_Pagos`, `Fact_Envios`, `Fact_Sesiones`, `Fact_NPS`.
-2. **Campos calculados** (ejemplos):
-   - `Ventas`: `CASE WHEN status IN ('PAID','FULFILLED') THEN total_amount ELSE 0 END` (agregación: SUM).
-   - `Ticket Promedio`: `SUM(Ventas) / COUNT_DISTINCT(order_id)`.
-   - `Usuarios Activos`: usar lógica de la consulta 7.2 (o construir dos vistas separadas).
-   - `NPS`: `((% Promotores) - (% Detractores)) * 100` con bins por score.
-3. **Filtros / Segmentos**: Fecha (`Dim_Tiempo`), Canal (`Dim_Canal`), Provincia (`Dim_Geografia`), Producto (`Dim_Producto`).
-4. **Vistas mínimas**:
-   - Serie temporal + tarjeta de **Ventas**.
-   - Serie temporal + tarjeta de **Usuarios Activos**.
-   - Tarjeta de **Ticket Promedio**.
-   - Tarjeta + tendencia de **NPS**.
-   - **Ventas por Provincia** (mapa o barras).
-   - **Ranking mensual por Producto** (Top N).
-5. **Meta del trimestre (ejemplo de negocio)**: crecer 15% en ventas en Córdoba y reducir tiempos de entrega en Mendoza → monitorear **Ventas por Provincia** (filtro Córdoba) y **dias_en_transito** (en `Fact_Envios`).
-
----
-
-## 8) Buenas prácticas de repositorio
+## 7) Buenas prácticas de repositorio
 
 - **Entorno virtual** y `requirements.txt` versionado.
 - **Conventional Commits** (ejemplo):
@@ -314,7 +297,7 @@ Si todo sale bien, tendrás en `DW/` los CSV finales, listos para ser consumidos
 
 ---
 
-## 9) Créditos y Licencia
+## 8) Créditos y Licencia
 
 - **Autor/a**: Lautaro Sanfilippo 
 - **Materia**: Introducción al Marketing Online y los Negocios Digitales  

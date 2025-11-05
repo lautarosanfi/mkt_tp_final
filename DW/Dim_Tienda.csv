@@ -1,5 +1,5 @@
-store_id,nombre_tienda,geografia_sk
-1,Tienda BA,1
-2,Tienda CBA,2
-3,Tienda SF,3
-4,Tienda MZA,4
+store_id,nombre_tienda,line1,line2,city,postal_code,country_code,nombre_provincia
+1,Tienda BA,Sucursal Buenos Aires - Av. Principal 101,,Buenos Aires,1001,AR,Buenos Aires
+2,Tienda CBA,Sucursal Córdoba - Av. Principal 102,,Córdoba,1002,AR,Córdoba
+3,Tienda SF,Sucursal Santa Fe - Av. Principal 103,,Santa Fe,1003,AR,Santa Fe
+4,Tienda MZA,Sucursal Mendoza - Av. Principal 104,,Mendoza,1004,AR,Mendoza

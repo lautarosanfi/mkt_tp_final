@@ -1,5 +1,6 @@
 # Core (used by all ETL scripts)
 pandas>=2.2,<3.0
+tabulate
 
 # Optional: run SQL analytics directly on CSVs (not required for ETL run)
 duckdb>=1.0.0

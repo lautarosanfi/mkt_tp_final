@@ -59,4 +59,4 @@ def crear_dim_tiempo(START_DATE, END_DATE, OUTPUT_DIR, OUTPUT_FILE):
     print(df_tiempo.head().to_markdown(index=False, numalign="left", stralign="left"))
 
 if __name__ == "__main__":
-    generar_dim_tiempo()
+    crear_dim_tiempo()
