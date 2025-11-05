@@ -86,8 +86,7 @@ Estas tablas describen el contexto ("quién, qué, dónde, cuándo") de los hech
 
 #### Dim_Tienda
 * **PK:** `tienda_id` (INT)
-* **FK:** `geografia_sk` (ref: `Dim_Geografia.geografia_sk`)
-* **Atributos:** `nombre_tienda` (VARCHAR).
+* **Atributos:** `nombre_tienda` (VARCHAR), `line1` (VARCHAR), `line2` (VARCHAR), `city` (VARCHAR), `postal_code` (VARCHAR), `country_code` (CHAR), `nombre_provincia` (VARCHAR).
 
 ---
 
