@@ -37,8 +37,17 @@ CREATE TABLE Dim_Geografia (
 CREATE TABLE Dim_Tienda (
     tienda_id INT NOT NULL PRIMARY KEY COMMENT 'PK de RAW.store',
     nombre_tienda VARCHAR(80),
-    geografia_sk BIGINT,
-    FOREIGN KEY (geografia_sk) REFERENCES Dim_Geografia(geografia_sk)
+    
+    -- Campos de geografía desnormalizados
+    line1 VARCHAR(120),
+    line2 VARCHAR(120),
+    city VARCHAR(80),
+    postal_code VARCHAR(20),
+    country_code CHAR(2),
+    nombre_provincia VARCHAR(50)
+    
+    -- Se elimina la FK a Dim_Geografia:
+    -- FOREIGN KEY (geografia_sk) REFERENCES Dim_Geografia(geografia_sk)
 );
 
 CREATE TABLE Dim_Canal (
