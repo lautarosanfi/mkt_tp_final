@@ -28,7 +28,8 @@ Este proyecto implementa un *data warehouse* (DW) liviano en formato CSV a parti
 ### 📊 ¡Dashboard Interactivo y Entregable Final!
 El proyecto culmina con un dashboard interactivo hosteado, permitiendo el análisis y filtro de los KPIs clave.
 
-* ![**Dashboard Interactivo (Power BI):**👈](https://app.powerbi.com/groups/me/reports/62feaee1-58c4-4753-9a16-7a0454ba3253/f43c76e2f23b21d976f0?experience=power-bi)
+* [**Dashboard Interactivo (Power BI) 👈**](https://app.powerbi.com/groups/me/reports/62feaee1-58c4-4753-9a16-7a0454ba3253/f43c76e2f23b21d976f0?experience=power-bi)
+
 
 * **Capturas Principales:**
 
