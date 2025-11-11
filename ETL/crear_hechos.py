@@ -5,6 +5,17 @@ import os
 RAW_DIR = "raw"  # Archivos RAW en la raíz
 DW_DIR = "DW"  # Archivos DW en la carpeta DW
 
+def to_nullable_int(series: pd.Series, colname: str) -> pd.Series:
+    """
+    Convierte una serie (floats/strings tipo '123.0') a enteros pandas (Int64).
+    Falla si encuentra decimales distintos de .0 para evitar truncados silenciosos.
+    """
+    s_num = pd.to_numeric(series, errors='coerce')          # acepta '123.0' y 123.0
+    bad = s_num.notna() & ((s_num % 1) != 0)                # decimales no enteros
+    if bad.any():
+        raise ValueError(f"{colname}: hay {bad.sum()} valores con decimales != .0")
+    return s_num.astype('Int64') 
+
 def crear_hechos():
     """
     Carga las dimensiones desde la carpeta DW y los archivos RAW
@@ -51,34 +62,65 @@ def crear_hechos():
         # Mapear a tiempo_id
         return dates.map(lookup_tiempo)
 
-    # --- 2. Creación de Fact_Pedidos ---
+# --- 2. Creación de Fact_Pedidos ---
     try:
         print("\n--- Procesando: Fact_Pedidos ---")
         df_sales_order = pd.read_csv(os.path.join(RAW_DIR, "sales_order.csv"))
-        
+
+        # Forzar a entero las columnas ID que vienen como 123.0
+        id_cols = [
+            'order_id', 'customer_id', 'channel_id', 'store_id',
+            'billing_address_id', 'shipping_address_id'
+        ]
+        for c in id_cols:
+            if c in df_sales_order.columns:
+                df_sales_order[c] = to_nullable_int(df_sales_order[c], c)
+
         df_fact_pedidos = df_sales_order.copy()
-        
-        # Convertir FKs a SKs
-        df_fact_pedidos['tiempo_id'] = convert_date_to_tiempo_id(df_fact_pedidos['order_date'], lookup_tiempo)
-        df_fact_pedidos['cliente_sk'] = df_fact_pedidos['customer_id'].map(lookup_cliente)
-        df_fact_pedidos['geografia_billing_sk'] = df_fact_pedidos['billing_address_id'].map(lookup_geografia)
-        df_fact_pedidos['geografia_shipping_sk'] = df_fact_pedidos['shipping_address_id'].map(lookup_geografia)
-        
-        # Renombrar 'channel_id' por coherencia
+
+        # Convertir FKs a SKs (y dejarlos también como enteros)
+        df_fact_pedidos['tiempo_id'] = pd.to_numeric(
+            convert_date_to_tiempo_id(df_fact_pedidos['order_date'], lookup_tiempo),
+            errors='coerce'
+        ).astype('Int64')
+
+        df_fact_pedidos['cliente_sk'] = pd.to_numeric(
+            df_fact_pedidos['customer_id'].map(lookup_cliente),
+            errors='coerce'
+        ).astype('Int64')
+
+        df_fact_pedidos['geografia_billing_sk'] = pd.to_numeric(
+            df_fact_pedidos['billing_address_id'].map(lookup_geografia),
+            errors='coerce'
+        ).astype('Int64')
+
+        df_fact_pedidos['geografia_shipping_sk'] = pd.to_numeric(
+            df_fact_pedidos['shipping_address_id'].map(lookup_geografia),
+            errors='coerce'
+        ).astype('Int64')
+
+        # Renombrar channel_id -> canal_id y asegurar int
         df_fact_pedidos = df_fact_pedidos.rename(columns={'channel_id': 'canal_id'})
-        
+        if 'canal_id' in df_fact_pedidos.columns:
+            df_fact_pedidos['canal_id'] = to_nullable_int(df_fact_pedidos['canal_id'], 'canal_id')
+
         # Seleccionar columnas finales
         final_cols = [
-            'order_id', 'tiempo_id', 'cliente_sk', 'canal_id', 'store_id', 
-            'geografia_billing_sk', 'geografia_shipping_sk', 'subtotal', 
+            'order_id', 'tiempo_id', 'cliente_sk', 'canal_id', 'store_id',
+            'geografia_billing_sk', 'geografia_shipping_sk', 'subtotal',
             'tax_amount', 'shipping_fee', 'total_amount', 'status', 'currency_code'
         ]
         df_fact_pedidos = df_fact_pedidos[final_cols]
-        
-        # Guardar
+
+        # (Opcional) Si NO querés nullables y preferís int "duro", imputá primero:
+        # for c in ['order_id','tiempo_id','cliente_sk','canal_id','store_id',
+        #           'geografia_billing_sk','geografia_shipping_sk']:
+        #     df_fact_pedidos[c] = df_fact_pedidos[c].fillna(-1).astype(int)
+
+        # Guardar: los Int64 se escriben como 123 (sin .0)
         output_path = os.path.join(DW_DIR, "Fact_Pedidos.csv")
         df_fact_pedidos.to_csv(output_path, index=False, encoding='utf-8')
-        
+
         print(f"¡Éxito! 'Fact_Pedidos.csv' guardado.")
         print(df_fact_pedidos.head().to_markdown(index=False, numalign="left", stralign="left"))
 
@@ -86,6 +128,7 @@ def crear_hechos():
         print("Error: 'sales_order.csv' no encontrado.")
     except Exception as e:
         print(f"Error procesando Fact_Pedidos: {e}")
+
 
     # --- 3. Creación de Fact_Ventas_Detalle ---
     try:
