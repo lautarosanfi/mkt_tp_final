@@ -1,6 +1,6 @@
 # TP Final — Ecosistema de Datos (EcoBottle AR)
 
-> **Introducción al Marketing Online y los Negocios Digitales — Trabajo Práctico Final**  
+> **Introducción al Marketing Online y los Negocios Digitales — Trabajo Práctico Final**  
 > Mini–ecosistema de datos comercial (online + offline) + dashboard de KPIs.
 
 ## 0) Contenidos
@@ -16,47 +16,55 @@
 
 ---
 
-## 1) Descripción y Objetivos
+## 1) Descripción y Objetivos 🎯
 
 Este proyecto implementa un *data warehouse* (DW) liviano en formato CSV a partir de datos RAW provistos, y construye un tablero con **KPIs** para el área comercial: **Ventas**, **Usuarios Activos**, **Ticket Promedio**, **NPS**, **Ventas por Provincia** y **Ranking Mensual por Producto**. El caso de uso es **EcoBottle AR** (ventas online y 4 tiendas físicas).
 
 **Entregables principales**:
 - Scripts de carga/transformación (ETL) que generan dimensiones y hechos en `DW/`.
 - **README** (este documento) con instrucciones, supuestos, diccionario y consultas.
-- **Dashboard** final en Looker Studio con filtros por fecha, canal, provincia y producto.
+- **Dashboard** final en Power BI con filtros por fecha, canal, provincia y producto.
 
-> Al ser entrega parcial el dashboard aún no está disponible 
+### 📊 ¡Dashboard Interactivo y Entregable Final!
+El proyecto culmina con un dashboard interactivo hosteado, permitiendo el análisis y filtro de los KPIs clave.
+
+* **Dashboard Interactivo (Power BI):** **[https://app.powerbi.com/groups/me/reports/62feaee1-58c4-4753-9a16-7a0454ba3253/f43c76e2f23b21d976f0?experience=power-bi]** 👈
+* **Capturas Principales:**
+
+![Captura del Dashboard 1](assets/dashboard1.jpg)
+![Captura del Dashboard 2](assets/dashboard2.jpg)
+
 ---
 
-## 2) Diccionario de Datos y Modelo
+## 2) Diccionario de Datos y Modelo 🔑
 
 A continuación, se detalla el Esquema Estrella (modelo Kimball) diseñado para este proyecto. Se definen los supuestos clave, las dimensiones de conformación y las tablas de hechos que almacenarán las métricas del negocio.
 
-#### Supuestos y Decisiones de Modelado
+#### 🧠 Supuestos y Decisiones de Modelado
 
-1.  **Claves (Keys):**
-    * **Surrogate Keys (SK):** Se generan claves sustitutas (ej: `cliente_sk`, `producto_sk`) para las dimensiones principales (`Dim_Cliente`, `Dim_Producto`, `Dim_Geografia`). Esto permite manejar cambios a lo largo del tiempo (Slowly Changing Dimensions) y desvincular el DW de las claves operacionales de `RAW`.
-    * **Business Keys (BK):** Se conservan las claves originales (ej: `customer_id`, `product_id`) como atributos en las dimensiones para trazabilidad y referencia.
-    * **Fact Keys:** Las tablas de hechos usan las PK originales del sistema `RAW` (ej: `order_id`, `session_id`) como su propia Primary Key, ya que el grano es el mismo.
+1.  **Claves (Keys):**
+    * **Surrogate Keys (SK):** Se generan claves sustitutas (ej: `cliente_sk`, `producto_sk`) para las dimensiones principales (`Dim_Cliente`, `Dim_Producto`, `Dim_Geografia`). Esto permite manejar cambios a lo largo del tiempo (Slowly Changing Dimensions) y desvincular el DW de las claves operacionales de `RAW`.
+    * **Business Keys (BK):** Se conservan las claves originales (ej: `customer_id`, `product_id`) como atributos en las dimensiones para trazabilidad y referencia.
+    * **Fact Keys:** Las tablas de hechos usan las PK originales del sistema `RAW` (ej: `order_id`, `session_id`) como su propia Primary Key, ya que el grano es el mismo.
 
-2.  **Dimensión de Tiempo (`Dim_Tiempo`):**
-    * Esta es una **dimensión de conformación** generada por el script de ETL, ya que no existe en los datos `RAW`.
-    * Todas las tablas de hechos se vinculan a esta dimensión a través de sus respectivos campos de fecha (ej: `order_date`, `started_at`, `paid_at`).
-    * La PK (`tiempo_id`) es un entero con formato `YYYYMMDD` para facilitar los `JOINs`.
+2.  **Dimensión de Tiempo (`Dim_Tiempo`):**
+    * Esta es una **dimensión de conformación** generada por el script de ETL, ya que no existe en los datos `RAW`.
+    * Todas las tablas de hechos se vinculan a esta dimensión a través de sus respectivos campos de fecha (ej: `order_date`, `started_at`, `paid_at`).
+    * La PK (`tiempo_id`) es un entero con formato `YYYYMMDD` para facilitar los `JOINs`.
 
-3.  **Manejo de Nulos / Anónimos:**
-    * Las tablas `web_session` y `nps_response` permiten un `customer_id` nulo.
-    * Para manejar esto, `Dim_Cliente` contendrá un registro especial (ej: `cliente_sk = -1`) con el valor "Cliente Desconocido / Anónimo". Las FKs en `Fact_Sesiones` y `Fact_NPS` apuntarán a este registro cuando el `customer_id` sea `NULL`.
+3.  **Manejo de Nulos / Anónimos:**
+    * Las tablas `web_session` y `nps_response` permiten un `customer_id` nulo.
+    * Para manejar esto, `Dim_Cliente` contendrá un registro especial (ej: `cliente_sk = -1`) con el valor "Cliente Desconocido / Anónimo". Las FKs en `Fact_Sesiones` y `Fact_NPS` apuntarán a este registro cuando el `customer_id` sea `NULL`.
 
-4.  **Denormalización en Dimensiones:**
-    * **`Dim_Producto`:** Se denormaliza uniendo `product` con `product_category` para incluir el nombre de la categoría y su padre en la misma fila.
-    * **`Dim_Geografia`:** Se denormaliza uniendo `address` con `province` para tener la información de provincia directamente en la dimensión geográfica.
+4.  **Denormalización en Dimensiones:**
+    * **`Dim_Producto`:** Se denormaliza uniendo `product` con `product_category` para incluir el nombre de la categoría y su padre en la misma fila.
+    * **`Dim_Geografia`:** Se denormaliza uniendo `address` con `province` para tener la información de provincia directamente en la dimensión geográfica.
 
-5.  **Definición de KPIs (Dominios):**
-    * **Ventas ($M):** Se calculan como `SUM(total_amount)` de `Fact_Pedidos` donde el `status` sea 'PAID' o 'FULFILLED'.
-    * **Usuarios Activos (nK):** `COUNT(DISTINCT cliente_sk)` de `Fact_Sesiones`. Se excluye al cliente "Desconocido".
-    * **Ticket Promedio ($K):** `SUM(total_amount) / COUNT(DISTINCT order_id)` para los pedidos con status 'PAID' o 'FULFILLED'.
-    * **NPS (ptos.):** `((Promotores - Detractores) / Total Respuestas) * 100`. (Promotores: 9-10, Detractores: 0-6).
+5.  **Definición de KPIs (Dominios):**
+    * **Ventas ($M):** Se calculan como `SUM(total_amount)` de `Fact_Pedidos` donde el `status` sea 'PAID' o 'FULFILLED'.
+    * **Usuarios Activos (nK):** `COUNT(DISTINCT cliente_sk)` de `Fact_Sesiones`. Se excluye al cliente "Desconocido".
+    * **Ticket Promedio ($K):** `SUM(total_amount) / COUNT(DISTINCT order_id)` para los pedidos con status 'PAID' o 'FULFILLED'.
+    * **NPS (ptos.):** `((Promotores - Detractores) / Total Respuestas) * 100`. (Promotores: 9-10, Detractores: 0-6).
 
 ---
 
@@ -100,12 +108,12 @@ Registra las cabeceras de las órdenes de venta. Es la fuente principal para el 
 
 * **Grano:** Una fila por cabecera de pedido (`sales_order`).
 * **Dimensiones (FKs):**
-    * `tiempo_id` (ref: `Dim_Tiempo`, por `order_date`)
-    * `cliente_sk` (ref: `Dim_Cliente`)
-    * `canal_id` (ref: `Dim_Canal`)
-    * `tienda_id` (ref: `Dim_Tienda`, NULO si es online)
-    * `geografia_billing_sk` (ref: `Dim_Geografia`, por `billing_address_id`)
-    * `geografia_shipping_sk` (ref: `Dim_Geografia`, por `shipping_address_id`)
+    * `tiempo_id` (ref: `Dim_Tiempo`, por `order_date`)
+    * `cliente_sk` (ref: `Dim_Cliente`)
+    * `canal_id` (ref: `Dim_Canal`)
+    * `tienda_id` (ref: `Dim_Tienda`, NULO si es online)
+    * `geografia_billing_sk` (ref: `Dim_Geografia`, por `billing_address_id`)
+    * `geografia_shipping_sk` (ref: `Dim_Geografia`, por `shipping_address_id`)
 * **Medidas:** `subtotal`, `tax_amount`, `shipping_fee`, `total_amount`.
 * **Atributos Degenerados:** `order_id` (PK), `status`, `currency_code`.
 
@@ -114,9 +122,9 @@ Registra el detalle de productos en cada orden. Es la fuente para el Ranking de 
 ![Esquema Ventas Detalle](star_schema/Fact_Ventas_Detalle.png)
 * **Grano:** Una fila por ítem de producto dentro de un pedido (`sales_order_item`).
 * **Dimensiones (FKs):**
-    * `order_id` (ref: `Fact_Pedidos.order_id`)
-    * `producto_sk` (ref: `Dim_Producto`)
-    * `tiempo_id` (ref: `Dim_Tiempo`, por `order_date` de la cabecera)
+    * `order_id` (ref: `Fact_Pedidos.order_id`)
+    * `producto_sk` (ref: `Dim_Producto`)
+    * `tiempo_id` (ref: `Dim_Tiempo`, por `order_date` de la cabecera)
 * **Medidas:** `quantity`, `unit_price`, `discount_amount`, `line_total`.
 * **Atributos Degenerados:** `order_item_id` (PK).
 
@@ -125,8 +133,8 @@ Registra las transacciones de pago asociadas a las órdenes.
 ![Esquema Pagos](star_schema/Fact_Pagos.png)
 * **Grano:** Una fila por transacción de pago (`payment`).
 * **Dimensiones (FKs):**
-    * `order_id` (ref: `Fact_Pedidos.order_id`)
-    * `tiempo_id` (ref: `Dim_Tiempo`, por `paid_at`)
+    * `order_id` (ref: `Fact_Pedidos.order_id`)
+    * `tiempo_id` (ref: `Dim_Tiempo`, por `paid_at`)
 * **Medidas:** `amount`.
 * **Atributos Degenerados:** `payment_id` (PK), `method`, `status`, `transaction_ref`.
 
@@ -135,9 +143,9 @@ Registra la información logística de los envíos.
 ![Esquema Envios](star_schema/Fact_Envios.png)
 * **Grano:** Una fila por envío (`shipment`).
 * **Dimensiones (FKs):**
-    * `order_id` (ref: `Fact_Pedidos.order_id`)
-    * `tiempo_shipped_id` (ref: `Dim_Tiempo`, por `shipped_at`)
-    * `tiempo_delivered_id` (ref: `Dim_Tiempo`, por `delivered_at`)
+    * `order_id` (ref: `Fact_Pedidos.order_id`)
+    * `tiempo_shipped_id` (ref: `Dim_Tiempo`, por `shipped_at`)
+    * `tiempo_delivered_id` (ref: `Dim_Tiempo`, por `delivered_at`)
 * **Medidas:** `dias_en_transito` (Calculada en ETL: `delivered_at` - `shipped_at`).
 * **Atributos Degenerados:** `shipment_id` (PK), `carrier`, `tracking_number`, `status`.
 
@@ -146,8 +154,8 @@ Registra las sesiones de navegación web. Es la fuente para el KPI de Usuarios A
 ![Esquema Sesiones](star_schema/Fact_Sesiones.png)
 * **Grano:** Una fila por sesión web (`web_session`).
 * **Dimensiones (FKs):**
-    * `cliente_sk` (ref: `Dim_Cliente`, puede ser "Desconocido")
-    * `tiempo_id` (ref: `Dim_Tiempo`, por `started_at`)
+    * `cliente_sk` (ref: `Dim_Cliente`, puede ser "Desconocido")
+    * `tiempo_id` (ref: `Dim_Tiempo`, por `started_at`)
 * **Medidas:** `contador_sesion` (Valor: 1), `duracion_sesion_seg` (Calculada en ETL: `ended_at` - `started_at`).
 * **Atributos Degenerados:** `session_id` (PK), `source`, `device`.
 
@@ -156,15 +164,15 @@ Registra las respuestas a las encuestas de Net Promoter Score.
 ![Esquema NPS](star_schema/Fact_NPS.png)
 * **Grano:** Una fila por respuesta de encuesta (`nps_response`).
 * **Dimensiones (FKs):**
-    * `cliente_sk` (ref: `Dim_Cliente`, puede ser "Desconocido")
-    * `canal_id` (ref: `Dim_Canal`)
-    * `tiempo_id` (ref: `Dim_Tiempo`, por `responded_at`)
+    * `cliente_sk` (ref: `Dim_Cliente`, puede ser "Desconocido")
+    * `canal_id` (ref: `Dim_Canal`)
+    * `tiempo_id` (ref: `Dim_Tiempo`, por `responded_at`)
 * **Medidas:** `score`.
 * **Atributos Degenerados:** `nps_id` (PK), `comment` (TEXT).
 
 ---
 
-## 3) Estructura del Repositorio
+## 3) Estructura del Repositorio 📂
 
 ```
 .
@@ -195,15 +203,17 @@ Registra las respuestas a las encuestas de Net Promoter Score.
 │   └── Fact_*.csv
 │
 ├── assets/                 # imágenes para README / capturas del dashboard y DER
-    └── dashboard/*.png
+    └── dashboard1.jpg
+    └── dashboard2.jpg
     └── DER.png
+    └── Logo.jpg
 ```
 
 > **Importante:** asegurate de que todos los CSVs provistos estén bajo `raw/` antes de ejecutar los scripts.
 
 ---
 
-## 4) Requisitos e Instalación
+# 4) Requisitos e Instalación ⚙️
 
 **Versión recomendada de Python:** 3.10+  
 **SO:** Windows / macOS / Linux
@@ -235,7 +245,7 @@ pip install -r requirements.txt
 
 ---
 
-## 5) Pipeline ETL (scripts)
+# 5) Pipeline ETL (scripts) 🔄
 
 1) **crear_dim_tiempo.py**  
 Genera la tabla `DW/Dim_Tiempo.csv` con atributos de fecha (id `YYYYMMDD`, año, mes, nombre de mes, día, trimestre, día de semana). Respeta rango `START_DATE`–`END_DATE`.  
@@ -270,7 +280,7 @@ Variables clave (pasadas por terminal):
 
 ---
 
-## 6) Cómo ejecutar el proyecto
+## 6) Cómo ejecutar el proyecto 🚀
 ```bash
 # 1) Asegurá los CSV de RAW en ./raw
 
@@ -284,7 +294,7 @@ python ETL/main.py --start "2023-01-01" --end "2025-12-31"
 ```
 ---
 
-## 7) Buenas prácticas de repositorio
+## 7) Buenas prácticas de repositorio 👍
 
 - **Entorno virtual** y `requirements.txt` versionado.
 - **Conventional Commits** (ejemplo):
@@ -296,7 +306,7 @@ python ETL/main.py --start "2023-01-01" --end "2025-12-31"
 
 ---
 
-## 8) Créditos y Licencia
+## 8) Créditos y Licencia 🧑‍💻
 
 - **Autor/a**: Lautaro Sanfilippo 
 - **Materia**: Introducción al Marketing Online y los Negocios Digitales  
