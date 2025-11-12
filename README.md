@@ -307,7 +307,7 @@ python ETL/main.py --start "2023-01-01" --end "2025-12-31"
 - **Conventional Commits** (ejemplo):
   - `feat(etl): agrega cálculo de dias_en_transito en Fact_Envios`
   - `fix(dim_producto): corrige nulos en nombre_categoria`
-  - `docs(readme): agrega instrucciones de Looker Studio`
+  - `docs(readme): agrega instrucciones de Power BI`
 - **Estructura clara de carpetas** (`raw/`, `DW/`, `ETL/`, `star_schema/`, `assets/`).
 - **Control por consola**: creación de ramas, commits, *tags* de entregas, *merge* sin fast-forward cuando aplique.
 
