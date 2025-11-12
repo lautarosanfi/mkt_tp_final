@@ -52,26 +52,26 @@ A continuación, se detalla el Esquema Estrella (modelo Kimball) diseñado para 
 
 2.  **Dimensión de Tiempo (`Dim_Tiempo`):**
 
-* Esta es una **dimensión de conformación** generada por el script de ETL, ya que no existe en los datos `RAW`.
-* Todas las tablas de hechos se vinculan a esta dimensión a través de sus respectivos campos de fecha (ej: `order_date`, `started_at`, `paid_at`).
-* La PK (`tiempo_id`) es un entero con formato `YYYYMMDD` para facilitar los `JOINs`.
+    * Esta es una **dimensión de conformación** generada por el script de ETL, ya que no existe en los datos `RAW`.
+    * Todas las tablas de hechos se vinculan a esta dimensión a través de sus respectivos campos de fecha (ej: `order_date`, `started_at`, `paid_at`).
+    * La PK (`tiempo_id`) es un entero con formato `YYYYMMDD` para facilitar los `JOINs`.
 
 3.  **Manejo de Nulos / Anónimos:**
 
-* Las tablas `web_session` y `nps_response` permiten un `customer_id` nulo.
-* Para manejar esto, `Dim_Cliente` contendrá un registro especial (ej: `cliente_sk = -1`) con el valor "Cliente Desconocido / Anónimo". Las FKs en `Fact_Sesiones` y `Fact_NPS` apuntarán a este registro cuando el `customer_id` sea `NULL`.
+    * Las tablas `web_session` y `nps_response` permiten un `customer_id` nulo.
+    * Para manejar esto, `Dim_Cliente` contendrá un registro especial (ej: `cliente_sk = -1`) con el valor "Cliente Desconocido / Anónimo". Las FKs en `Fact_Sesiones` y `Fact_NPS` apuntarán a este registro cuando el `customer_id` sea `NULL`.
 
 4.  **Denormalización en Dimensiones:**
 
-* **`Dim_Producto`:** Se denormaliza uniendo `product` con `product_category` para incluir el nombre de la categoría y su padre en la misma fila.
-* **`Dim_Geografia`:** Se denormaliza uniendo `address` con `province` para tener la información de provincia directamente en la dimensión geográfica.
+    * **`Dim_Producto`:** Se denormaliza uniendo `product` con `product_category` para incluir el nombre de la categoría y su padre en la misma fila.
+    * **`Dim_Geografia`:** Se denormaliza uniendo `address` con `province` para tener la información de provincia directamente en la dimensión geográfica.
 
 5.  **Definición de KPIs (Dominios):**
 
-* **Ventas ($M):** Se calculan como `SUM(total_amount)` de `Fact_Pedidos` donde el `status` sea 'PAID' o 'FULFILLED'.
-* **Usuarios Activos (nK):** `COUNT(DISTINCT cliente_sk)` de `Fact_Sesiones`. Se excluye al cliente "Desconocido".
-* **Ticket Promedio ($K):** `SUM(total_amount) / COUNT(DISTINCT order_id)` para los pedidos con status 'PAID' o 'FULFILLED'.
-* **NPS (ptos.):** `((Promotores - Detractores) / Total Respuestas) * 100`. (Promotores: 9-10, Detractores: 0-6).
+    * **Ventas ($M):** Se calculan como `SUM(total_amount)` de `Fact_Pedidos` donde el `status` sea 'PAID' o 'FULFILLED'.
+    * **Usuarios Activos (nK):** `COUNT(DISTINCT cliente_sk)` de `Fact_Sesiones`. Se excluye al cliente "Desconocido".
+    * **Ticket Promedio ($K):** `SUM(total_amount) / COUNT(DISTINCT order_id)` para los pedidos con status 'PAID' o 'FULFILLED'.
+    * **NPS (ptos.):** `((Promotores - Detractores) / Total Respuestas) * 100`. (Promotores: 9-10, Detractores: 0-6).
 
 ---
 
@@ -115,15 +115,13 @@ Registra las cabeceras de las órdenes de venta. Es la fuente principal para el 
 
 * **Grano:** Una fila por cabecera de pedido (`sales_order`).
 * **Dimensiones (FKs):** 
-
-    * `tiempo_id` (ref: `Dim_Tiempo`, por `order_date`)
-
-    * `cliente_sk` (ref: `Dim_Cliente`)
-    * `canal_id` (ref: `Dim_Canal`)
-    * `tienda_id` (ref: `Dim_Tienda`, NULO si es online)
-    * `geografia_billing_sk` (ref: `Dim_Geografia`, por `billing_address_id`)
-    * `geografia_shipping_sk` (ref: `Dim_Geografia`, por `shipping_address_id`)
-* **Medidas:** `subtotal`, `tax_amount`, `shipping_fee`, `total_amount`.
+    * `tiempo_id` (ref: `Dim_Tiempo`, por `order_date`)
+    * `cliente_sk` (ref: `Dim_Cliente`)
+    * `canal_id` (ref: `Dim_Canal`)
+    * `tienda_id` (ref: `Dim_Tienda`, NULO si es online)
+    * `geografia_billing_sk` (ref: `Dim_Geografia`, por `billing_address_id`)
+    * `geografia_shipping_sk` (ref: `Dim_Geografia`, por `shipping_address_id`)
+    * **Medidas:** `subtotal`, `tax_amount`, `shipping_fee`, `total_amount`.
 * **Atributos Degenerados:** `order_id` (PK), `status`, `currency_code`.
 
 #### 2. Fact_Ventas_Detalle
@@ -131,9 +129,9 @@ Registra el detalle de productos en cada orden. Es la fuente para el Ranking de 
 ![Esquema Ventas Detalle](star_schema/Fact_Ventas_Detalle.png)
 * **Grano:** Una fila por ítem de producto dentro de un pedido (`sales_order_item`).
 * **Dimensiones (FKs):**
-    * `order_id` (ref: `Fact_Pedidos.order_id`)
-    * `producto_sk` (ref: `Dim_Producto`)
-    * `tiempo_id` (ref: `Dim_Tiempo`, por `order_date` de la cabecera)
+    * `order_id` (ref: `Fact_Pedidos.order_id`)
+    * `producto_sk` (ref: `Dim_Producto`)
+    * `tiempo_id` (ref: `Dim_Tiempo`, por `order_date` de la cabecera)
 * **Medidas:** `quantity`, `unit_price`, `discount_amount`, `line_total`.
 * **Atributos Degenerados:** `order_item_id` (PK).
 
@@ -142,8 +140,8 @@ Registra las transacciones de pago asociadas a las órdenes.
 ![Esquema Pagos](star_schema/Fact_Pagos.png)
 * **Grano:** Una fila por transacción de pago (`payment`).
 * **Dimensiones (FKs):**
-    * `order_id` (ref: `Fact_Pedidos.order_id`)
-    * `tiempo_id` (ref: `Dim_Tiempo`, por `paid_at`)
+    * `order_id` (ref: `Fact_Pedidos.order_id`)
+    * `tiempo_id` (ref: `Dim_Tiempo`, por `paid_at`)
 * **Medidas:** `amount`.
 * **Atributos Degenerados:** `payment_id` (PK), `method`, `status`, `transaction_ref`.
 
@@ -152,9 +150,9 @@ Registra la información logística de los envíos.
 ![Esquema Envios](star_schema/Fact_Envios.png)
 * **Grano:** Una fila por envío (`shipment`).
 * **Dimensiones (FKs):**
-    * `order_id` (ref: `Fact_Pedidos.order_id`)
-    * `tiempo_shipped_id` (ref: `Dim_Tiempo`, por `shipped_at`)
-    * `tiempo_delivered_id` (ref: `Dim_Tiempo`, por `delivered_at`)
+    * `order_id` (ref: `Fact_Pedidos.order_id`)
+    * `tiempo_shipped_id` (ref: `Dim_Tiempo`, por `shipped_at`)
+    * `tiempo_delivered_id` (ref: `Dim_Tiempo`, por `delivered_at`)
 * **Medidas:** `dias_en_transito` (Calculada en ETL: `delivered_at` - `shipped_at`).
 * **Atributos Degenerados:** `shipment_id` (PK), `carrier`, `tracking_number`, `status`.
 
@@ -163,8 +161,8 @@ Registra las sesiones de navegación web. Es la fuente para el KPI de Usuarios A
 ![Esquema Sesiones](star_schema/Fact_Sesiones.png)
 * **Grano:** Una fila por sesión web (`web_session`).
 * **Dimensiones (FKs):**
-    * `cliente_sk` (ref: `Dim_Cliente`, puede ser "Desconocido")
-    * `tiempo_id` (ref: `Dim_Tiempo`, por `started_at`)
+    * `cliente_sk` (ref: `Dim_Cliente`, puede ser "Desconocido")
+    * `tiempo_id` (ref: `Dim_Tiempo`, por `started_at`)
 * **Medidas:** `contador_sesion` (Valor: 1), `duracion_sesion_seg` (Calculada en ETL: `ended_at` - `started_at`).
 * **Atributos Degenerados:** `session_id` (PK), `source`, `device`.
 
@@ -173,9 +171,9 @@ Registra las respuestas a las encuestas de Net Promoter Score.
 ![Esquema NPS](star_schema/Fact_NPS.png)
 * **Grano:** Una fila por respuesta de encuesta (`nps_response`).
 * **Dimensiones (FKs):**
-    * `cliente_sk` (ref: `Dim_Cliente`, puede ser "Desconocido")
-    * `canal_id` (ref: `Dim_Canal`)
-    * `tiempo_id` (ref: `Dim_Tiempo`, por `responded_at`)
+    * `cliente_sk` (ref: `Dim_Cliente`, puede ser "Desconocido")
+    * `canal_id` (ref: `Dim_Canal`)
+    * `tiempo_id` (ref: `Dim_Tiempo`, por `responded_at`)
 * **Medidas:** `score`.
 * **Atributos Degenerados:** `nps_id` (PK), `comment` (TEXT).
 
